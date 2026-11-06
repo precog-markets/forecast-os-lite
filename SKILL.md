@@ -144,8 +144,8 @@ volume is zero, say "no trades yet."
 Kalshi has no public full-text search endpoint. Prefer series discovery when
 the query is not a ticker. If no series match, fall back to filtering up to 2
 pages of open events (200 each, following `cursor`) by event and market titles.
-Show the top 5 matches. If there is still no match, say Kalshi's public API has
-no full-text search and suggest a narrower query.
+Show the top 5 matching markets. If there is still no match, say Kalshi's
+public API has no full-text search and suggest a narrower query.
 
 ### Precog markets
 
@@ -174,9 +174,13 @@ strings; pair them by index.
 
 `search` filters the question name case-insensitively. The service returns
 matching rows; still drop any row whose `status` is not `OPEN`. The response may
-be a list or `{ "count": ..., "results": [...] }`; handle both. Show the top 5
-matches. This endpoint does not return an `updated_at` field, so use the current
-fetch time when reporting freshness.
+be a list or `{ "count": ..., "results": [...] }`; handle both. This endpoint
+does not return an `updated_at` field, so use the current fetch time when
+reporting freshness.
+
+Precog can have many outcomes. For the default table, rank outcomes by
+`buy_prices` and show only the highest-priced outcome. Show the full outcome
+list only when the user asks for that market's detail.
 
 ### Precog launchpad
 
@@ -216,21 +220,29 @@ to the full skill.
    Kalshi nested markets `status == "active"`; Precog `status=OPEN` in the
    request.
 4. Extract only the listed fields. Do not dump raw JSON or long descriptions.
-5. Report a compact table, then give the source and freshness timestamp in
-   prose.
-6. If there is no match, say so. If the user wants to create or fund a market
+5. Report a compact table with one row per market, showing only the most likely
+   outcome. Add the source and freshness timestamp in prose.
+6. If the user asks for all outcomes of a specific market, show one detail
+   table for that market only.
+7. If there is no match, say so. If the user wants to create or fund a market
    to obtain real information, point them at the full `forecast-os` skill.
-7. If the user asks for any action, redirect to the full skill before doing
+8. If the user asks for any action, redirect to the full skill before doing
    anything else.
 
 ## Output
 
-Market table:
+Default market table, one row per market:
 
 | Platform | Market | Outcome | Market-implied | Close |
 | --- | --- | --- | --- | --- |
 
-- Show at most 5 outcomes or markets per platform.
+- Group by market or event. Show at most 5 rows per platform, one row per
+  market or event.
+- The Outcome column is the single most likely outcome for that market or
+  event. Do not repeat the same market for each outcome.
+- For Kalshi, treat each nested binary market as an outcome under the parent
+  event title; show only the most likely one.
+- If the top outcomes are tied, show one and note the tie.
 - Format probabilities as percentages with one decimal place.
 - For Kalshi, label the value "last trade" so it is not mistaken for a live
   quote.
@@ -239,6 +251,18 @@ Market table:
   use the `overround` field.
 - Match the question and resolution criteria before comparing platforms. Do
   not average incompatible markets.
+
+If the user explicitly asks for all outcomes of one market, show a separate
+detail table for that market only:
+
+**Platform - Market** (close: ...)
+
+| Outcome | Market-implied |
+| --- | --- |
+
+- Do not render detail tables for multiple markets at once.
+- For Kalshi, treat each nested binary market as an outcome under the parent
+  event title.
 
 Launchpad table:
 
