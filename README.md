@@ -5,8 +5,8 @@ Read-only edition of [ForecastOS](https://github.com/precog-markets/forecast-os)
 ## What it does
 
 - Looks up open markets on **Polymarket**, **Kalshi**, and **Precog**
-- Reports market-implied probabilities with the source and a freshness timestamp
-- Discovers upcoming markets on the Precog launchpad
+- Reports market-implied probabilities of an event with the source and a freshness timestamp
+- Discovers upcoming markets
 
 ## What it does not do
 
