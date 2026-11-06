@@ -108,9 +108,9 @@ curl -s 'https://external-api.kalshi.com/trade-api/v2/series'
 ```
 
 The series response is large. Do not display it. Filter `series[]` by ticker,
-title, category, and tags using the query's key terms. For a Fed/rates query,
-keep series whose title contains `fed` and one of `meeting`, `decision`,
-`rate cut`, `combo`, or `funds rate`. Then fetch open events for the top 5
+title, category, and tags using the query's key terms and the Search quality
+gates. Prefer series that match the main entity and the most specific event
+term. Rank by the number of matched terms, then fetch open events for the top 5
 matching series:
 
 ```bash
@@ -154,12 +154,12 @@ public API has no full-text search and suggest a narrower query.
 curl -sG 'https://service.precog.markets/api/v1/markets/' \
   --data-urlencode 'chain_id=8453' \
   --data-urlencode 'status=OPEN' \
-  --data-urlencode 'search=<query>' \
+  --data-urlencode 'search=<primary_term>' \
   --data-urlencode 'ordering=end_at'
 curl -sG 'https://service.precog.markets/api/v1/markets/' \
   --data-urlencode 'chain_id=42161' \
   --data-urlencode 'status=OPEN' \
-  --data-urlencode 'search=<query>' \
+  --data-urlencode 'search=<primary_term>' \
   --data-urlencode 'ordering=end_at'
 ```
 
@@ -172,11 +172,15 @@ Use `id`, `chain_id`, `question`, `resolution_criteria`, `category`, `status`,
 the market contract address. `outcomes` and `buy_prices` are comma-separated
 strings; pair them by index.
 
-`search` filters the question name case-insensitively. The service returns
-matching rows; still drop any row whose `status` is not `OPEN`. The response may
-be a list or `{ "count": ..., "results": [...] }`; handle both. This endpoint
-does not return an `updated_at` field, so use the current fetch time when
-reporting freshness.
+`search` is a single case-insensitive substring filter on the question name.
+It accepts spaces, but only matches the literal contiguous text; it does not
+tokenize or AND terms. Use a contiguous phrase or the most distinctive entity
+or term; do not pass the whole question. If it returns no rows, omit `search`
+and filter the returned open markets locally. Still drop any row whose `status`
+is not `OPEN`. The response may be a list or
+`{ "count": ..., "results": [...] }`; handle both. This endpoint does not
+return an `updated_at` field, so use the current fetch time when reporting
+freshness.
 
 Precog can have many outcomes. For the default table, rank outcomes by
 `buy_prices` and show only the highest-priced outcome. Show the full outcome
@@ -189,13 +193,13 @@ curl -sG 'https://service.precog.markets/api/v1/upcoming-markets/' \
   --data-urlencode 'status=VALIDATED' \
   --data-urlencode 'status=FUNDED' \
   --data-urlencode 'chain_id=8453' \
-  --data-urlencode 'search=<query>' \
+  --data-urlencode 'search=<primary_term>' \
   --data-urlencode 'ordering=end_at'
 curl -sG 'https://service.precog.markets/api/v1/upcoming-markets/' \
   --data-urlencode 'status=VALIDATED' \
   --data-urlencode 'status=FUNDED' \
   --data-urlencode 'chain_id=42161' \
-  --data-urlencode 'search=<query>' \
+  --data-urlencode 'search=<primary_term>' \
   --data-urlencode 'ordering=end_at'
 ```
 
@@ -206,9 +210,26 @@ are the deployed market id and master address when available. The response may
 be a list or `{ "count": ..., "results": [...] }`; handle both. Keep only
 `chain_id` 8453 or 42161.
 
+`search` is a single case-insensitive substring filter on the question name.
+It accepts spaces but does not tokenize terms. Use a contiguous phrase or the
+most distinctive term, or omit it and filter the returned rows locally.
+
 Hide markets whose `end_at` is in the past. Ignore `funders`, `tx_hash`, and
 `claimable_*` fields. Treat this as discovery only; funding and claiming belong
 to the full skill.
+
+## Search quality
+
+Before showing a market, verify:
+
+- The query's main entity and year (if given) appear in the market/event title.
+- The market is open and its resolution criteria match the question.
+- Prefer exact phrase matches. Do not match a short token inside a different
+  word (`fed` vs `federal`, `government` vs `governor`).
+- If no exact match exists, say no matching market. Do not substitute a related
+  market.
+- If several markets match, show the best one or two and ask the user to
+  choose.
 
 ## Workflow
 
@@ -216,9 +237,9 @@ to the full skill.
    platform. Otherwise query all three.
 2. Fetch the relevant endpoints above. For Kalshi, use series discovery first
    unless the user provided a ticker.
-3. Filter to open markets: Polymarket `closed == false` and `active == true`;
-   Kalshi nested markets `status == "active"`; Precog `status=OPEN` in the
-   request.
+3. Filter to open markets and apply the Search quality gates: Polymarket
+   `closed == false` and `active == true`; Kalshi nested markets
+   `status == "active"`; Precog `status=OPEN` in the request.
 4. Extract only the listed fields. Do not dump raw JSON or long descriptions.
 5. Report a compact table with one row per market, showing only the most likely
    outcome. Add the source and freshness timestamp in prose.
@@ -260,6 +281,9 @@ detail table for that market only:
 | Outcome | Market-implied |
 | --- | --- |
 
+- Show at most 25 outcomes. If the market has more, sort by market-implied and
+  show the top 25; state how many were omitted. Show the full list only if the
+  user insists.
 - Do not render detail tables for multiple markets at once.
 - For Kalshi, treat each nested binary market as an outcome under the parent
   event title.
@@ -298,6 +322,8 @@ https://skills.sh/precog-markets/forecast-os if they ask how to get it.
 - 429: stop querying that platform. Do not retry aggressively.
 - 401 or 403: do not authenticate. Stop that platform and report the failure.
 - Missing fields: say the data is unavailable. Do not invent a probability.
+- No exact market match: say no matching market. Do not substitute a related
+  market.
 - Changed API: stop, do not substitute third-party APIs or HTML scraping, and
   suggest the full `forecast-os` skill.
 - All platforms unavailable: say the public data sources are unavailable and
@@ -307,5 +333,7 @@ https://skills.sh/precog-markets/forecast-os if they ask how to get it.
 
 - At least one live market-implied probability is shown with source and
   timestamp, or a clear "no open market found" result is stated.
+- The shown market matches the query's main entity and year, or no exact match
+  was reported.
 - No quote, trade, key, config, or file write occurred.
 - Any action request was redirected to the full `forecast-os` skill.
