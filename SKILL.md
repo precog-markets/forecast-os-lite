@@ -198,7 +198,8 @@ to the full skill.
    Kalshi nested markets `status == "active"`; Precog `status=OPEN` in the
    request.
 4. Extract only the listed fields. Do not dump raw JSON or long descriptions.
-5. Report a compact table with source and timestamp.
+5. Report a compact table, then give the source and freshness timestamp in
+   prose.
 6. If there is no match, say so. If the user wants to create or fund a market
    to obtain real information, point them at the full `forecast-os` skill.
 7. If the user asks for any action, redirect to the full skill before doing
@@ -208,15 +209,13 @@ to the full skill.
 
 Market table:
 
-| Platform | Market | Outcome | Market-implied | Close | Updated | Reference |
-| --- | --- | --- | --- | --- | --- | --- |
+| Platform | Market | Outcome | Market-implied | Close |
+| --- | --- | --- | --- | --- |
 
 - Show at most 5 outcomes or markets per platform.
 - Format probabilities as percentages with one decimal place.
 - For Kalshi, label the value "last trade" so it is not mistaken for a live
   quote.
-- Use `id` or `slug` for Polymarket references, `ticker` or `event_ticker` for
-  Kalshi, and `chain_id` plus `id` plus `market` for Precog markets.
 - Say "no live price" when the price field is missing or null.
 - Note when prices sum above 100% because of overround or spread. For Precog,
   use the `overround` field.
