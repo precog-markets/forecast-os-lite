@@ -15,7 +15,7 @@ This edition is strictly read-only (HTTP GET against public endpoints). It does 
 ## Install
 
 ```bash
-npx skills add precog-markets/forecast-os
+npx skills add precog-markets/forecast-os-lite
 ```
 
 ## Example prompts
