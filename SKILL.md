@@ -101,7 +101,23 @@ events and 5 markets per event.
 
 ### Kalshi
 
-Open events with nested markets:
+Series discovery:
+
+```bash
+curl -s 'https://external-api.kalshi.com/trade-api/v2/series'
+```
+
+The series response is large. Do not display it. Filter `series[]` by ticker,
+title, category, and tags using the query's key terms. For a Fed/rates query,
+keep series whose title contains `fed` and one of `meeting`, `decision`,
+`rate cut`, `combo`, or `funds rate`. Then fetch open events for the top 5
+matching series:
+
+```bash
+curl -s 'https://external-api.kalshi.com/trade-api/v2/events?series_ticker=<ticker>&status=open&with_nested_markets=true'
+```
+
+Open events across all series, as a fallback:
 
 ```bash
 curl -s 'https://external-api.kalshi.com/trade-api/v2/events?status=open&limit=200&with_nested_markets=true'
@@ -110,25 +126,26 @@ curl -s 'https://external-api.kalshi.com/trade-api/v2/events?status=open&limit=2
 Direct lookups:
 
 ```bash
-curl -s 'https://external-api.kalshi.com/trade-api/v2/events?series_ticker=<series_ticker>&status=open&with_nested_markets=true'
 curl -s 'https://external-api.kalshi.com/trade-api/v2/markets?event_ticker=<event_ticker>&status=open'
 curl -s 'https://external-api.kalshi.com/trade-api/v2/markets/<ticker>'
 ```
 
-Use `events[].event_ticker`, `events[].title`, and `markets[].ticker`,
-`title`, `yes_sub_title`, `no_sub_title`, `last_price_dollars`, `volume_fp`,
-`volume_24h_fp`, `close_time`, `updated_time`, `status`.
+Use `series[].ticker`, `series[].title`, `series[].category`, and
+`series[].tags`. Use `events[].event_ticker`, `events[].title`, and
+`markets[].ticker`, `title`, `yes_sub_title`, `no_sub_title`,
+`last_price_dollars`, `volume_fp`, `volume_24h_fp`, `close_time`,
+`updated_time`, `status`.
 
 Kalshi event status is `open`; nested market status is `active`. Filter nested
 markets to `status == "active"`. `last_price_dollars` is the last trade price,
 not a live quote; label it "last trade" in the output. If it is `0.0000` and
 volume is zero, say "no trades yet."
 
-Kalshi has no public full-text search endpoint. If the query looks like a
-ticker or series, use a direct lookup. Otherwise, filter up to 2 pages of open
-events (200 each, following `cursor`) by event and market titles. Show the top
-5 matches. If there is still no match, say Kalshi's public API has no full-text
-search and suggest a narrower query.
+Kalshi has no public full-text search endpoint. Prefer series discovery when
+the query is not a ticker. If no series match, fall back to filtering up to 2
+pages of open events (200 each, following `cursor`) by event and market titles.
+Show the top 5 matches. If there is still no match, say Kalshi's public API has
+no full-text search and suggest a narrower query.
 
 ### Precog markets
 
@@ -193,7 +210,8 @@ to the full skill.
 
 1. Determine the platforms to query. If the user names one, query only that
    platform. Otherwise query all three.
-2. Fetch the relevant endpoints above.
+2. Fetch the relevant endpoints above. For Kalshi, use series discovery first
+   unless the user provided a ticker.
 3. Filter to open markets: Polymarket `closed == false` and `active == true`;
    Kalshi nested markets `status == "active"`; Precog `status=OPEN` in the
    request.
