@@ -2,12 +2,13 @@
 name: forecast-os-lite
 description: >-
   Look up live prediction-market odds from Polymarket, Kalshi, and Precog, plus
-  upcoming Precog launchpad markets, read-only. Use whenever the user asks the
-  odds, probability, or likelihood of a future event (elections, Fed and rate
-  decisions, crypto prices, sports, geopolitics, "will X happen by Y", "what
-  does the market think"), wants to compare platforms, or wants upcoming
-  markets, even if they never say "prediction market." Not for quotes, trades,
-  funding, claims, or market creation; redirect those to forecast-os.
+  upcoming Precog launchpad proposals (not live, no odds), read-only. Use
+  whenever the user asks the odds, probability, or likelihood of a future event
+  (elections, Fed and rate decisions, crypto prices, sports, geopolitics, "will
+  X happen by Y", "what does the market think"), wants to compare platforms, or
+  wants upcoming markets, even if they never say "prediction market." Not for
+  quotes, trades, funding, claims, or market creation; redirect those to
+  forecast-os.
 compatibility: >-
   Needs outbound HTTPS GET to gamma-api.polymarket.com,
   external-api.kalshi.com, and service.precog.markets.
@@ -25,7 +26,8 @@ chance. This skill finds relevant markets and reports those market-implied
 probabilities with the source and a freshness timestamp. It reports what the
 market implies, not its own forecast.
 
-It can discover open markets and upcoming markets. It cannot create or fund
+It can discover open markets and upcoming markets (proposals that are not live
+yet and have no probabilities). It cannot create or fund
 markets, place or manage trades, handle wallets or keys, or change local
 configuration; for those, use the full ForecastOS skill (`forecast-os`).
 
@@ -219,6 +221,21 @@ Hide markets whose `end_at` is in the past. Ignore `funders`, `tx_hash`, and
 `claimable_*` fields. Treat this as discovery only; funding and claiming belong
 to the full skill.
 
+Launchpad markets are proposals created by Precog or the community. They are
+not live markets, so they have no market-implied probability and must never
+appear in a probability table or be compared with live markets. Statuses:
+
+- `VALIDATED`: accepted and open for funding. The minimum has not been reached,
+  and a market that never reaches it does not deploy.
+- `FUNDED`: the minimum funding was reached, so it can deploy, but it is not
+  live yet.
+- `DEPLOYED`: now a live market. Do not report it from the launchpad; look it
+  up with `market_id=<market_id>` on the Precog markets endpoint above and
+  report its probability from there.
+
+Deployment is never guaranteed for a market that is not yet `DEPLOYED`. Do not
+imply an upcoming market will go live.
+
 ## Search quality
 
 Before showing a market, verify:
@@ -252,7 +269,8 @@ clock, say the time is unknown rather than guessing.
 1. Determine the platforms to query. If the user names one, query only that
    platform. Otherwise query all three. If the query names no specific event
    ("what's likely to happen?", "what's hot"), skip the entity gate and show
-   Polymarket trending plus the Precog launchpad.
+   Polymarket trending, plus the Precog launchpad in its own table (it has no
+   probabilities and is not part of the market-implied table).
 2. Run Preflight, then fetch the relevant endpoints above. For Kalshi, use
    series discovery first unless the user provided a ticker.
 3. Filter to open markets and apply the Search quality gates: Polymarket
@@ -317,15 +335,18 @@ detail table for that market only:
   how many were omitted and show the full list only if the user insists.
 - Do not render detail tables for multiple markets at once.
 
-Launchpad table:
+Launchpad table (upcoming markets are not live and have no probabilities):
 
-| Upcoming market | Status | Current funding |
-| --- | --- | --- |
+| Upcoming market | Status | Current funding | Minimum to deploy | End |
+| --- | --- | --- | --- | --- |
 
 - Show at most 10 markets.
-- Show `collateral_funding` as current funding, with the `collateral_symbol`.
-- `VALIDATED` means funding is open. `FUNDED` means at least the minimum was
-  reached.
+- Show `collateral_funding` as current funding and `min_funding_amount` as the
+  minimum, with the `collateral_symbol`.
+- Open the answer with one line: these are proposed markets, not live, with no
+  odds, and one that does not reach its minimum funding will not deploy.
+- Never add a probability column, and never answer "what are the odds" from a
+  launchpad row. If that is the question, say no live market exists yet.
 - State that funding and claiming require the full `forecast-os` skill.
 
 ## Political and election questions
